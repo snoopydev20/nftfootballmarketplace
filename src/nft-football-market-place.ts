@@ -1,66 +1,111 @@
-import { BigInt } from "@graphprotocol/graph-ts"
+import { BigInt, store } from "@graphprotocol/graph-ts"
 import {
-  NFTFootballMarketPlace,
   CollectionApproChanged,
   OfferClosed,
   OfferCreated,
   OwnershipTransferred,
   PiecePurchased
 } from "../generated/NFTFootballMarketPlace/NFTFootballMarketPlace"
-import { ExampleEntity } from "../generated/schema"
+import { 
+  OfferEntity,
+  TradeHistoryEntity,
+  WCollectionEntity
+ } from "../generated/schema"
 
 export function handleCollectionApproChanged(
   event: CollectionApproChanged
 ): void {
-  // Entities can be loaded from the store using a string ID; this ID
-  // needs to be unique across all entities of the same type
-  let entity = ExampleEntity.load(event.transaction.from.toHex())
+  let entityId = "wcollection_" + event.params.collection.toHex()
+  
+  if (!event.params.approved) {
+    store.remove('WCollectionEntity', entityId)
+  } else {
+    let entity = new WCollectionEntity(entityId)
 
-  // Entities only exist after they have been saved to the store;
-  // `null` checks allow to create entities on demand
-  if (!entity) {
-    entity = new ExampleEntity(event.transaction.from.toHex())
+    entity.timestamp = event.block.timestamp
+    entity.collection = event.params.collection
 
-    // Entity fields can be set using simple assignments
-    entity.count = BigInt.fromI32(0)
+    entity.save()
   }
-
-  // BigInt and BigDecimal math are supported
-  entity.count = entity.count + BigInt.fromI32(1)
-
-  // Entity fields can be set based on event parameters
-  entity.collection = event.params.collection
-  entity.approved = event.params.approved
-
-  // Entities can be written to the store with `.save()`
-  entity.save()
-
-  // Note: If a handler doesn't require existing field values, it is faster
-  // _not_ to load the entity from the store. Instead, create it fresh with
-  // `new Entity(...)`, set the fields that should be updated and save the
-  // entity back to the store. Fields that were not set or unset remain
-  // unchanged, allowing for partial updates to be applied.
-
-  // It is also possible to access smart contracts from mappings. For
-  // example, the contract that has emitted the event can be connected to
-  // with:
-  //
-  // let contract = Contract.bind(event.address)
-  //
-  // The following functions can then be called on this contract to access
-  // state variables and other data:
-  //
-  // - contract.marketSupply(...)
-  // - contract.offers(...)
-  // - contract.owner(...)
-  // - contract.paymentToken(...)
-  // - contract.wCollections(...)
 }
 
-export function handleOfferClosed(event: OfferClosed): void {}
+export function handleOfferClosed(event: OfferClosed): void {
+  // remove offer entity 
 
-export function handleOfferCreated(event: OfferCreated): void {}
+  let entityId = `footballmarketplace_offer_${event.params.offerID.toHex()}`
+  store.remove('OfferEntity', entityId)
 
-export function handleOwnershipTransferred(event: OwnershipTransferred): void {}
+   // trading history entity
+   let tradHisEntityId = event.transaction.hash.toHexString() + "-" + event.transactionLogIndex.toString()
+   let tradHisEntity = new TradeHistoryEntity(tradHisEntityId)
+   tradHisEntity.offerId = event.params.offerID
+   tradHisEntity.timestamp = event.block.timestamp
+   tradHisEntity.txhash = event.transaction.hash.toHexString()
+   tradHisEntity.eventName = "closeOffer"
+   tradHisEntity.collection = event.params.collectionId
+   tradHisEntity.tokenId = event.params.pieceID
+   tradHisEntity.seller = event.params.seller
+   tradHisEntity.save()
+}
 
-export function handlePiecePurchased(event: PiecePurchased): void {}
+export function handleOfferCreated(event: OfferCreated): void {
+  let entityId = `footballmarketplace_offer_${event.params.offerIndex.toHex()}`
+  let entity = new OfferEntity(entityId)
+  entity.offerId = event.params.offerIndex
+  entity.timestamp = event.block.timestamp
+  entity.collection = event.params.collectionId
+  entity.tokenId = event.params.pieceID
+  entity.price = event.params.price
+  entity.seller = event.params.creator
+  entity.amount = event.params.supply
+  entity.save()
+
+  // trading history entity
+  let tradHisEntityId = event.transaction.hash.toHexString() + "-" + event.transactionLogIndex.toString()
+  let tradHisEntity = new TradeHistoryEntity(tradHisEntityId)
+  tradHisEntity.offerId = event.params.offerIndex
+  tradHisEntity.timestamp = event.block.timestamp
+  tradHisEntity.txhash = event.transaction.hash.toHexString()
+  tradHisEntity.eventName = "newOffer"
+  tradHisEntity.collection = event.params.collectionId
+  tradHisEntity.tokenId = event.params.pieceID
+  tradHisEntity.seller = event.params.creator
+  tradHisEntity.price = event.params.price
+  tradHisEntity.amount = event.params.supply
+
+  tradHisEntity.save()
+}
+
+export function handleOwnershipTransferred(event: OwnershipTransferred): void {
+
+}
+
+export function handlePiecePurchased(event: PiecePurchased): void {
+  // remove old offer entity and update with new
+  let saleEntityId = `footballmarketplace_offer_${event.params.offerIndex.toHex()}`
+  // store.remove('OfferEntity', saleEntityId)
+  let entity = OfferEntity.load(saleEntityId);
+  
+  if(entity){
+    let seller = entity.seller
+    let price = entity.price
+    let existingAmount = entity.amount;
+    entity.amount = existingAmount.minus(event.params.amount)
+    entity.save()
+
+     // trading history entity
+    let tradHisEntityId = event.transaction.hash.toHexString() + "-" + event.transactionLogIndex.toString()
+    let tradHisEntity = new TradeHistoryEntity(tradHisEntityId)
+    tradHisEntity.offerId = event.params.offerIndex
+    tradHisEntity.timestamp = event.block.timestamp
+    tradHisEntity.txhash = event.transaction.hash.toHexString()
+    tradHisEntity.eventName = "purchaseNft"
+    tradHisEntity.collection = event.params.collectionId
+    tradHisEntity.tokenId = event.params.pieceID
+    tradHisEntity.seller = seller
+    tradHisEntity.buyer = event.params.buyer
+    tradHisEntity.price = price
+    tradHisEntity.amount = event.params.amount
+    tradHisEntity.save()
+  }
+}

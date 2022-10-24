@@ -1,6 +1,6 @@
 specVersion: 0.0.4
 schema:
-  file: ./schema.graphql
+  file: schema.graphql
 dataSources:
   - kind: ethereum
     name: NFTFootballMarketPlace
@@ -20,16 +20,17 @@ dataSources:
         - PiecePurchased
       abis:
         - name: NFTFootballMarketPlace
-          file: ./abis/NFTFootballMarketPlace.json
+          file: NFTFootballMarketPlace\abis\NFTFootballMarketPlace.json
       eventHandlers:
         - event: CollectionApproChanged(address,bool)
           handler: handleCollectionApproChanged
         - event: OfferClosed(address,indexed address,uint256,uint256)
           handler: handleOfferClosed
-        - event: OfferCreated(address,indexed uint256,indexed address,indexed uint256,uint256,uint256)
+        - event: OfferCreated(address,indexed uint256,indexed address,indexed
+            uint256,uint256,uint256)
           handler: handleOfferCreated
         - event: OwnershipTransferred(indexed address,indexed address)
           handler: handleOwnershipTransferred
         - event: PiecePurchased(address,indexed uint256,indexed uint256,uint256,address)
           handler: handlePiecePurchased
-      file: ./src/nft-football-market-place.ts
+      file: NFTFootballMarketPlace\NFTFootballMarketPlace.wasm
