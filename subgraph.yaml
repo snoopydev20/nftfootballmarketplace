@@ -8,6 +8,7 @@ dataSources:
     source:
       address: "0xFbCDE3442aa411D2BA5c593Dd4A5DAcEA9eEa6eB"
       abi: NFTFootballMarketPlace
+      startBlock: 23990660
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
